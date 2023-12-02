@@ -32,6 +32,12 @@ async fn health_check_works() {
 #[tokio::test]
 async fn subscribe_returns_200_for_valid_form_data() {
     let server_addrs = spawn_app();
+    let configuration = get_configuration().expect("Failed to read connection");
+    let connection_string = configuration.database.connection_string();
+
+    let mut connection = PgConnection::connect(&connection_string)
+        .await
+        .expect("Failed to connect Postgres.");
     let client = reqwest::Client::new();
 
     let body = "name=Suraj%20Vijayan&email=surajvijay67%40@gmail.com";
@@ -44,6 +50,14 @@ async fn subscribe_returns_200_for_valid_form_data() {
         .expect("Failed to execute request");
 
     assert_eq!(200, response.status().as_u16());
+
+    let saved = sqlx::query!("SELECT email, name FROM subscriptions",)
+        .fetch_one(&mut connection)
+        .await
+        .expect("Failed to fetch saved subscription.");
+
+    assert_eq!(saved.email, "surajvijay67@gmail.com");
+    assert_eq!(saved.name, "Suraj Vijayan");
 }
 
 #[tokio::test]
