@@ -22,10 +22,13 @@ async fn main() -> std::io::Result<()> {
     )
     .expect("Failed to connect to Postgres.");
 
-    let address = format!("127.0.0.1:{}", configuration.application_port);
+    let address = format!(
+        "{}:{}",
+        configuration.application.host, configuration.application.port
+    );
     let listener = TcpListener::bind(address)?;
 
     run(listener, db_connection_pool)
-        .unwrap_or_else(|_| panic!("Couldn't bind to {}", configuration.application_port))
+        .unwrap_or_else(|_| panic!("Couldn't bind to {}", configuration.application.port))
         .await
 }
