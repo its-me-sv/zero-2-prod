@@ -8,8 +8,8 @@ use zero2prod::{
 };
 
 static TRACING: Lazy<()> = Lazy::new(|| {
-    let subscriber_name = "test".to_string();
     let default_filter_level = "info".to_string();
+    let subscriber_name = "test".to_string();
 
     if std::env::var("TEST_LOG").is_ok() {
         let subscriber = get_subscriber(subscriber_name, default_filter_level, std::io::stdout);
@@ -49,7 +49,7 @@ async fn spawn_app() -> TestApp {
 }
 
 pub async fn configure_database(db_config: &DatabaseSettings) -> PgPool {
-    let mut connection = PgConnection::connect_with(&db_config.with_db())
+    let mut connection = PgConnection::connect_with(&db_config.without_db())
         .await
         .expect("Failed to connect to Postgres");
     connection
@@ -86,11 +86,7 @@ async fn health_check_works() {
 #[tokio::test]
 async fn subscribe_returns_200_for_valid_form_data() {
     let app = spawn_app().await;
-    let configuration = get_configuration().expect("Failed to read connection");
 
-    let mut connection = PgConnection::connect_with(&configuration.database.with_db())
-        .await
-        .expect("Failed to connect Postgres.");
     let client = reqwest::Client::new();
 
     let body = "name=Suraj%20Vijayan&email=surajvijay67%40gmail.com";
@@ -105,7 +101,7 @@ async fn subscribe_returns_200_for_valid_form_data() {
     assert_eq!(200, response.status().as_u16());
 
     let saved = sqlx::query!("SELECT email, name FROM subscriptions",)
-        .fetch_one(&mut connection)
+        .fetch_one(&app.db_pool)
         .await
         .expect("Failed to fetch saved subscription.");
 

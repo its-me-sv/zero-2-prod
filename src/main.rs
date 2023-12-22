@@ -24,5 +24,6 @@ async fn main() -> std::io::Result<()> {
 
     run(listener, db_connection_pool)
         .unwrap_or_else(|_| panic!("Couldn't bind to {}", configuration.application.port))
-        .await
+        .await?;
+    Ok(())
 }
