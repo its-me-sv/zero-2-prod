@@ -51,6 +51,7 @@ impl EmailClient {
 }
 
 #[derive(serde::Serialize)]
+#[serde(rename_all = "PascalCase")]
 struct SendEmailRequest {
     from: String,
     to: String,
@@ -61,6 +62,7 @@ struct SendEmailRequest {
 
 #[cfg(test)]
 mod tests {
+    use crate::{domain::SubscriberEmail, email_client::EmailClient};
     use fake::{
         faker::{internet::en::SafeEmail, lorem::en::Sentence},
         Fake, Faker,
@@ -68,13 +70,30 @@ mod tests {
     use secrecy::Secret;
     use wiremock::{
         matchers::{header, header_exists, method, path},
-        Mock, MockServer, ResponseTemplate,
+        Mock, MockServer, Request, ResponseTemplate,
     };
 
-    use crate::{domain::SubscriberEmail, email_client::EmailClient};
+    struct SendEmailBodyMatcher;
+
+    impl wiremock::Match for SendEmailBodyMatcher {
+        fn matches(&self, request: &Request) -> bool {
+            let result: Result<serde_json::Value, _> = serde_json::from_slice(&request.body);
+            match result {
+                Ok(body) => {
+                    dbg!(&body);
+                    body.get("From").is_some()
+                        && body.get("To").is_some()
+                        && body.get("Subject").is_some()
+                        && body.get("HtmlBody").is_some()
+                        && body.get("TextBody").is_some()
+                }
+                Err(_) => false,
+            }
+        }
+    }
 
     #[tokio::test]
-    async fn send_email_fires_a_request_to_base_url() {
+    async fn send_email_sends_the_expected_request() {
         let mock_server = MockServer::start().await;
         let sender = SubscriberEmail::parse(SafeEmail().fake()).unwrap();
         let email_client = EmailClient::new(mock_server.uri(), sender, Secret::new(Faker.fake()));
@@ -83,6 +102,7 @@ mod tests {
             .and(header("Content-Type", "application/json"))
             .and(path("/email"))
             .and(method("POST"))
+            .and(SendEmailBodyMatcher)
             .respond_with(ResponseTemplate::new(200))
             .expect(1)
             .mount(&mock_server)
